@@ -1,34 +1,107 @@
 class LocalizationManager {
     constructor() {
-        this.locales = {};
-        this.loadedLanguages = new Set();
+        // Embed locale data directly to avoid fetch issues in background script
+        this.locales = {
+            en: {
+                summary: {
+                    promptIntro: "Please provide a summary of the following webpage content",
+                    lengthInstructions: {
+                        short: "in 1-2 concise sentences",
+                        medium: "in 3-4 clear sentences",
+                        long: "in 1-2 detailed paragraphs"
+                    },
+                    labels: {
+                        title: "Title",
+                        url: "URL",
+                        content: "Main Content",
+                        headings: "Key Headings",
+                        noTitle: "No title",
+                        unknown: "Unknown",
+                        noContent: "No content available"
+                    },
+                    instruction: "Focus on the main points and key information. Be concise and informative."
+                },
+                sentiment: {
+                    instruction: "Analyze the sentiment and emotional tone of the following text. Categorize it as one of: joyful, neutral, or toxic.",
+                    textLabel: "Text to analyze:",
+                    formatInstruction: "Please respond in the following JSON format:",
+                    categories: "joyful/neutral/toxic",
+                    explanationLabel: "Brief explanation of why this sentiment was chosen",
+                    detailInstruction: "Be thorough in your analysis, considering context, tone, and overall emotional impact.",
+                    fallbackMessages: {
+                        positive: "Positive sentiment detected",
+                        negative: "Negative sentiment detected",
+                        neutral: "No strong sentiment detected",
+                        noExplanation: "No explanation provided"
+                    },
+                    categoryNames: {
+                        joyful: "joyful",
+                        neutral: "neutral",
+                        toxic: "toxic"
+                    }
+                },
+                test: {
+                    prompt: "Respond with 'Connection successful!' to test the API.",
+                    successMessage: "API connection successful!"
+                }
+            },
+            es: {
+                summary: {
+                    promptIntro: "Por favor proporciona un resumen del siguiente contenido de página web",
+                    lengthInstructions: {
+                        short: "en 1-2 oraciones concisas",
+                        medium: "en 3-4 oraciones claras",
+                        long: "en 1-2 párrafos detallados"
+                    },
+                    labels: {
+                        title: "Título",
+                        url: "URL",
+                        content: "Contenido Principal",
+                        headings: "Encabezados Principales",
+                        noTitle: "Sin título",
+                        unknown: "Desconocido",
+                        noContent: "Sin contenido disponible"
+                    },
+                    instruction: "Enfócate en los puntos principales e información clave. Sé conciso e informativo. Responde completamente en español."
+                },
+                sentiment: {
+                    instruction: "Analiza el sentimiento y tono emocional del siguiente texto. Categorízalo como uno de: alegre, neutral, o tóxico.",
+                    textLabel: "Texto a analizar:",
+                    formatInstruction: "Por favor responde en el siguiente formato JSON:",
+                    categories: "alegre/neutral/tóxico",
+                    explanationLabel: "Breve explicación de por qué se eligió este sentimiento",
+                    detailInstruction: "Sé minucioso en tu análisis, considerando contexto, tono e impacto emocional general. Responde completamente en español.",
+                    fallbackMessages: {
+                        positive: "Sentimiento positivo detectado",
+                        negative: "Sentimiento negativo detectado",
+                        neutral: "No se detectó sentimiento fuerte",
+                        noExplanation: "Sin explicación proporcionada"
+                    },
+                    categoryNames: {
+                        joyful: "alegre",
+                        neutral: "neutral",
+                        toxic: "tóxico"
+                    }
+                },
+                test: {
+                    prompt: "Responde con '¡Conexión exitosa!' para probar la API. Responde completamente en español.",
+                    successMessage: "¡Conexión API exitosa!"
+                }
+            }
+        };
+        console.log('LocalizationManager: Initialized with embedded locales');
     }
 
-    async loadLocale(language) {
-        if (this.loadedLanguages.has(language)) {
+    getLocale(language = 'en') {
+        console.log('LocalizationManager: getLocale called for', language);
+        
+        if (this.locales[language]) {
+            console.log('LocalizationManager: Found locale for', language);
             return this.locales[language];
         }
-
-        try {
-            const response = await fetch(chrome.runtime.getURL(`locales/${language}.json`));
-            if (!response.ok) {
-                throw new Error(`Failed to load locale: ${language}`);
-            }
-            const localeData = await response.json();
-            this.locales[language] = localeData;
-            this.loadedLanguages.add(language);
-            return localeData;
-        } catch (error) {
-            console.warn(`Failed to load locale ${language}, falling back to English:`, error);
-            if (language !== 'en') {
-                return await this.loadLocale('en');
-            }
-            throw error;
-        }
-    }
-
-    async getLocale(language = 'en') {
-        return await this.loadLocale(language);
+        
+        console.log('LocalizationManager: Language not found, falling back to English');
+        return this.locales.en;
     }
 }
 
@@ -47,42 +120,56 @@ class AIWebpageAnalyzerBackground {
                 case 'testAPIConnection':
                     this.testAPIConnection(request.config).then(sendResponse);
                     return true;
+                case 'contentScriptReady':
+                    console.log('AIWebpageAnalyzerBackground: Content script ready on', request.url);
+                    sendResponse({ success: true });
+                    return true;
             }
         });
     }
 
     async analyzeWithAI({ content, analysisType, config }) {
+        console.log('AIWebpageAnalyzerBackground: analyzeWithAI called', { analysisType, hasContent: !!content, hasConfig: !!config });
+        
         try {
             const { provider, model, apiKey } = config;
             
             if (!provider || !model || !apiKey) {
+                console.log('AIWebpageAnalyzerBackground: Missing AI configuration');
                 throw new Error('Missing AI configuration');
             }
 
+            console.log('AIWebpageAnalyzerBackground: Getting language settings...');
             // Get language preference
             const settings = await this.getSettings();
             const language = settings.responseLanguage || 'en';
+            console.log('AIWebpageAnalyzerBackground: Language preference:', language);
 
             let result;
             switch (analysisType) {
                 case 'summary':
+                    console.log('AIWebpageAnalyzerBackground: Generating summary...');
                     result = await this.generateSummary(content, config, language);
                     break;
                 case 'sentiment':
+                    console.log('AIWebpageAnalyzerBackground: Analyzing sentiment...');
                     result = await this.analyzeSentiment(content, config, language);
                     break;
                 default:
+                    console.log('AIWebpageAnalyzerBackground: Unknown analysis type:', analysisType);
                     throw new Error('Unknown analysis type');
             }
 
+            console.log('AIWebpageAnalyzerBackground: Analysis completed successfully');
             return { success: true, result };
         } catch (error) {
+            console.error('AIWebpageAnalyzerBackground: Error in analyzeWithAI:', error);
             return { success: false, error: error.message };
         }
     }
 
     async generateSummary(content, config, language) {
-        const prompt = await this.createSummaryPrompt(content, config.summaryLength, language);
+        const prompt = this.createSummaryPrompt(content, config.summaryLength, language);
         const response = await this.callAI(prompt, config);
         return {
             type: 'summary',
@@ -92,10 +179,10 @@ class AIWebpageAnalyzerBackground {
     }
 
     async analyzeSentiment(content, config, language) {
-        const prompt = await this.createSentimentPrompt(content.text, language);
+        const prompt = this.createSentimentPrompt(content.text, language);
         const response = await this.callAI(prompt, config);
         
-        const sentiment = await this.parseSentimentResponse(response, language);
+        const sentiment = this.parseSentimentResponse(response, language);
         return {
             type: 'sentiment',
             sentiment: sentiment.category,
@@ -113,8 +200,8 @@ class AIWebpageAnalyzerBackground {
         });
     }
 
-    async createSummaryPrompt(content, length = 'medium', language = 'en') {
-        const locale = await this.localizationManager.getLocale(language);
+    createSummaryPrompt(content, length = 'medium', language = 'en') {
+        const locale = this.localizationManager.getLocale(language);
         const summary = locale.summary;
 
         return `${summary.promptIntro} ${summary.lengthInstructions[length]}:
@@ -130,8 +217,8 @@ ${content.headings?.length ? `\n${summary.labels.headings}: ${content.headings.m
 ${summary.instruction}`;
     }
 
-    async createSentimentPrompt(text, language = 'en') {
-        const locale = await this.localizationManager.getLocale(language);
+    createSentimentPrompt(text, language = 'en') {
+        const locale = this.localizationManager.getLocale(language);
         const sentiment = locale.sentiment;
 
         return `${sentiment.instruction}
@@ -224,7 +311,7 @@ ${sentiment.detailInstruction}`;
         try {
             const settings = await this.getSettings();
             const language = settings.responseLanguage || 'en';
-            const locale = await this.localizationManager.getLocale(language);
+            const locale = this.localizationManager.getLocale(language);
             
             const testPrompt = locale.test.prompt;
             const response = await this.callAI(testPrompt, config);
@@ -242,8 +329,8 @@ ${sentiment.detailInstruction}`;
         }
     }
 
-    async parseSentimentResponse(response, language = 'en') {
-        const locale = await this.localizationManager.getLocale(language);
+    parseSentimentResponse(response, language = 'en') {
+        const locale = this.localizationManager.getLocale(language);
         const sentiment = locale.sentiment;
         
         try {

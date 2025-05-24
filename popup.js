@@ -75,7 +75,24 @@ class PopupManager {
                 throw new Error('Please configure your AI settings first');
             }
 
-            const content = await this.extractPageContent(type);
+            // Try to get content with retry mechanism
+            let content;
+            let attempts = 0;
+            const maxAttempts = 2;
+            
+            while (attempts < maxAttempts) {
+                try {
+                    content = await this.extractPageContent(type);
+                    break;
+                } catch (error) {
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                        throw error;
+                    }
+                    // Wait a bit before retrying
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
             
             if (!content || !content.success) {
                 throw new Error(content?.error || 'Failed to extract page content');
@@ -112,23 +129,94 @@ class PopupManager {
         }
     }
 
+    async pingContentScript(tabId) {
+        return new Promise((resolve) => {
+            chrome.tabs.sendMessage(tabId, { action: 'ping' }, (response) => {
+                if (chrome.runtime.lastError || !response) {
+                    resolve(false);
+                } else {
+                    resolve(true);
+                }
+            });
+        });
+    }
+
+    async ensureContentScript(tab) {
+        // First try to ping the existing content script
+        const isAlive = await this.pingContentScript(tab.id);
+        
+        if (isAlive) {
+            console.log('Content script is already active');
+            return true;
+        }
+        
+        console.log('Content script not responding, trying to inject...');
+        
+        // Try to inject the content script programmatically as fallback
+        return new Promise((resolve) => {
+            chrome.tabs.executeScript(tab.id, { file: 'content.js' }, () => {
+                if (chrome.runtime.lastError) {
+                    console.error('Failed to inject content script:', chrome.runtime.lastError);
+                    // Even if injection fails, try to continue - the automatic injection might work
+                    setTimeout(async () => {
+                        const retryPing = await this.pingContentScript(tab.id);
+                        resolve(retryPing);
+                    }, 1000);
+                } else {
+                    console.log('Content script injected successfully');
+                    // Wait a bit for the script to initialize
+                    setTimeout(async () => {
+                        const verifyPing = await this.pingContentScript(tab.id);
+                        resolve(verifyPing);
+                    }, 1000);
+                }
+            });
+        });
+    }
+
     extractPageContent(type) {
-        return new Promise((resolve, reject) => {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        return new Promise(async (resolve, reject) => {
+            chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
                 if (!tabs || !tabs[0]) {
                     reject(new Error('No active tab found'));
                     return;
                 }
                 
+                const tab = tabs[0];
+                
+                // Check if we can inject content script on this URL
+                if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || 
+                    tab.url.startsWith('moz-extension://') || tab.url.startsWith('about:')) {
+                    reject(new Error('Cannot analyze browser internal pages. Please navigate to a web page.'));
+                    return;
+                }
+                
+                // Ensure content script is loaded
+                const scriptReady = await this.ensureContentScript(tab);
+                
+                if (!scriptReady) {
+                    reject(new Error('Failed to load content script. Please refresh the page and try again.'));
+                    return;
+                }
+                
                 const action = type === 'sentiment' ? 'extractTextForSentiment' : 'extractPageContent';
-                chrome.tabs.sendMessage(tabs[0].id, { action }, (response) => {
+                
+                // Send message to content script with timeout
+                const timeoutId = setTimeout(() => {
+                    reject(new Error('Content script timeout. Please refresh the page and try again.'));
+                }, 10000); // 10 second timeout
+                
+                chrome.tabs.sendMessage(tab.id, { action }, (response) => {
+                    clearTimeout(timeoutId);
+                    
                     if (chrome.runtime.lastError) {
-                        reject(new Error('Content script not loaded. Please refresh the page and try again.'));
+                        console.error('Content script error:', chrome.runtime.lastError);
+                        reject(new Error(`Content script not responding: ${chrome.runtime.lastError.message}. Please refresh the page and try again.`));
                         return;
                     }
                     
                     if (!response) {
-                        reject(new Error('No response from content script. Please refresh the page.'));
+                        reject(new Error('No response from content script. The page might not be fully loaded. Please refresh and try again.'));
                         return;
                     }
                     
@@ -139,21 +227,46 @@ class PopupManager {
     }
 
     extractImages() {
-        return new Promise((resolve, reject) => {
-            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        return new Promise(async (resolve, reject) => {
+            chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
                 if (!tabs || !tabs[0]) {
                     reject(new Error('No active tab found'));
                     return;
                 }
                 
-                chrome.tabs.sendMessage(tabs[0].id, { action: 'extractImages' }, (response) => {
+                const tab = tabs[0];
+                
+                // Check if we can inject content script on this URL
+                if (tab.url.startsWith('chrome://') || tab.url.startsWith('chrome-extension://') || 
+                    tab.url.startsWith('moz-extension://') || tab.url.startsWith('about:')) {
+                    reject(new Error('Cannot analyze browser internal pages. Please navigate to a web page.'));
+                    return;
+                }
+                
+                // Ensure content script is loaded
+                const scriptReady = await this.ensureContentScript(tab);
+                
+                if (!scriptReady) {
+                    reject(new Error('Failed to load content script. Please refresh the page and try again.'));
+                    return;
+                }
+                
+                // Send message to content script with timeout
+                const timeoutId = setTimeout(() => {
+                    reject(new Error('Content script timeout. Please refresh the page and try again.'));
+                }, 10000); // 10 second timeout
+                
+                chrome.tabs.sendMessage(tab.id, { action: 'extractImages' }, (response) => {
+                    clearTimeout(timeoutId);
+                    
                     if (chrome.runtime.lastError) {
-                        reject(new Error('Content script not loaded. Please refresh the page and try again.'));
+                        console.error('Content script error:', chrome.runtime.lastError);
+                        reject(new Error(`Content script not responding: ${chrome.runtime.lastError.message}. Please refresh the page and try again.`));
                         return;
                     }
                     
                     if (!response) {
-                        reject(new Error('No response from content script. Please refresh the page.'));
+                        reject(new Error('No response from content script. The page might not be fully loaded. Please refresh and try again.'));
                         return;
                     }
                     
@@ -330,8 +443,10 @@ class PopupManager {
 
     getSentimentIcon(sentiment) {
         switch (sentiment.toLowerCase()) {
-            case 'joyful': return '😊';
-            case 'toxic': return '😠';
+            case 'joyful':
+            case 'alegre': return '😊';
+            case 'toxic':
+            case 'tóxico': return '😠';
             case 'neutral':
             default: return '😐';
         }

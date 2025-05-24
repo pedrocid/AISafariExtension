@@ -1,19 +1,54 @@
 class WebpageAnalyzer {
     constructor() {
+        console.log('WebpageAnalyzer: Content script loaded on', window.location.href);
         this.setupMessageListener();
+        this.announcePresence();
+    }
+
+    announcePresence() {
+        // Let the extension know the content script is ready
+        try {
+            chrome.runtime.sendMessage({ action: 'contentScriptReady', url: window.location.href });
+        } catch (error) {
+            console.log('WebpageAnalyzer: Could not announce presence (extension may not be active)');
+        }
     }
 
     setupMessageListener() {
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            console.log('WebpageAnalyzer: Received message', request.action);
+            
             switch (request.action) {
                 case 'extractPageContent':
-                    this.extractPageContent().then(sendResponse);
+                    this.extractPageContent().then(response => {
+                        console.log('WebpageAnalyzer: Sending page content response', response);
+                        sendResponse(response);
+                    }).catch(error => {
+                        console.error('WebpageAnalyzer: Error extracting page content', error);
+                        sendResponse({ success: false, error: error.message });
+                    });
                     return true;
                 case 'extractImages':
-                    this.extractImages().then(sendResponse);
+                    this.extractImages().then(response => {
+                        console.log('WebpageAnalyzer: Sending images response', response);
+                        sendResponse(response);
+                    }).catch(error => {
+                        console.error('WebpageAnalyzer: Error extracting images', error);
+                        sendResponse({ success: false, error: error.message });
+                    });
                     return true;
                 case 'extractTextForSentiment':
-                    this.extractTextForSentiment().then(sendResponse);
+                    this.extractTextForSentiment().then(response => {
+                        console.log('WebpageAnalyzer: Sending sentiment text response', response);
+                        sendResponse(response);
+                    }).catch(error => {
+                        console.error('WebpageAnalyzer: Error extracting sentiment text', error);
+                        sendResponse({ success: false, error: error.message });
+                    });
+                    return true;
+                case 'ping':
+                    console.log('WebpageAnalyzer: Responding to ping');
+                    sendResponse({ success: true, message: 'Content script is alive' });
                     return true;
             }
         });
@@ -206,4 +241,10 @@ class WebpageAnalyzer {
     }
 }
 
-new WebpageAnalyzer();
+// Prevent duplicate initialization if script is injected multiple times
+if (!window.webpageAnalyzerInstance) {
+    window.webpageAnalyzerInstance = new WebpageAnalyzer();
+    console.log('WebpageAnalyzer: Instance created and stored globally');
+} else {
+    console.log('WebpageAnalyzer: Instance already exists, skipping initialization');
+}
