@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Webpage Analyzer</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Webpage Analyzer</h1>
+            <button id="settingsBtn" class="settings-btn" title="Settings">⚙️</button>
+        </header>
+        
+        <div class="analysis-options">
+            <button id="summaryBtn" class="option-btn">
+                <div class="icon">📄</div>
+                <div class="label">Page Summary</div>
+                <div class="description">Get AI-powered content summary</div>
+            </button>
+            
+            <button id="galleryBtn" class="option-btn">
+                <div class="icon">🖼️</div>
+                <div class="label">Image Gallery</div>
+                <div class="description">Browse page images in carousel</div>
+            </button>
+            
+            <button id="sentimentBtn" class="option-btn">
+                <div class="icon">😊</div>
+                <div class="label">Sentiment Analysis</div>
+                <div class="description">Analyze page tone and emotion</div>
+            </button>
+        </div>
+        
+        <div id="resultContainer" class="result-container hidden">
+            <div class="result-header">
+                <h3 id="resultTitle"></h3>
+                <button id="closeResult" class="close-btn">×</button>
+            </div>
+            <div id="resultContent" class="result-content"></div>
+            <div id="loadingSpinner" class="loading hidden">
+                <div class="spinner"></div>
+                <p>Analyzing with AI...</p>
+            </div>
+        </div>
+        
+        <div id="configNotice" class="config-notice hidden">
+            <p>⚠️ Please configure your AI model and API key in settings first.</p>
+            <button id="openSettings" class="config-btn">Open Settings</button>
+        </div>
+    </div>
+    
+    <script src="popup.js"></script>
+</body>
+</html>

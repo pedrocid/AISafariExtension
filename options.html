@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Webpage Analyzer - Settings</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>AI Webpage Analyzer Settings</h1>
+        </header>
+        
+        <div class="settings-section">
+            <h2>AI Model Configuration</h2>
+            
+            <div class="model-selection">
+                <label for="aiProvider">Choose AI Provider:</label>
+                <select id="aiProvider" class="select-input">
+                    <option value="">Select a provider...</option>
+                    <option value="openai">OpenAI (GPT-4, GPT-3.5)</option>
+                    <option value="anthropic">Anthropic (Claude)</option>
+                </select>
+            </div>
+            
+            <div id="modelOptions" class="model-options hidden">
+                <label for="modelName">Model:</label>
+                <select id="modelName" class="select-input">
+                </select>
+            </div>
+            
+            <div class="api-key-section">
+                <label for="apiKey">API Key:</label>
+                <div class="api-key-input-group">
+                    <input type="password" id="apiKey" class="text-input" placeholder="Enter your API key...">
+                    <button id="toggleApiKey" class="toggle-btn" type="button">👁️</button>
+                </div>
+                <div class="api-key-help">
+                    <div id="apiKeyHelp" class="help-text hidden">
+                        <p><strong>How to get your API key:</strong></p>
+                        <ul id="apiKeyInstructions"></ul>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="test-section">
+                <button id="testConnection" class="test-btn" disabled>Test Connection</button>
+                <div id="testResult" class="test-result hidden"></div>
+            </div>
+        </div>
+        
+        <div class="settings-section">
+            <h2>Analysis Settings</h2>
+            
+            <div class="setting-item">
+                <label for="summaryLength">Summary Length:</label>
+                <select id="summaryLength" class="select-input">
+                    <option value="short">Short (1-2 sentences)</option>
+                    <option value="medium" selected>Medium (3-4 sentences)</option>
+                    <option value="long">Long (1-2 paragraphs)</option>
+                </select>
+            </div>
+            
+            <div class="setting-item">
+                <label for="maxImages">Max Images in Gallery:</label>
+                <select id="maxImages" class="select-input">
+                    <option value="10">10 images</option>
+                    <option value="20" selected>20 images</option>
+                    <option value="50">50 images</option>
+                    <option value="100">100 images</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="actions">
+            <button id="saveSettings" class="save-btn">Save Settings</button>
+            <button id="resetSettings" class="reset-btn">Reset to Defaults</button>
+        </div>
+        
+        <div id="saveStatus" class="save-status hidden"></div>
+    </div>
+    
+    <script src="options.js"></script>
+</body>
+</html>
