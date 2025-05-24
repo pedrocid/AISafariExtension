@@ -2,6 +2,8 @@
 
 A powerful Safari extension that leverages AI to analyze webpages with three core features: intelligent page summarization, interactive image galleries, and sentiment analysis.
 
+![AI Webpage Analyzer Screenshot](screenshot.png)
+
 ## Features
 
 ### 🤖 AI-Powered Analysis
