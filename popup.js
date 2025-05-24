@@ -77,14 +77,14 @@ class PopupManager {
 
             const content = await this.extractPageContent(type);
             
-            if (!content.success) {
-                throw new Error(content.error);
+            if (!content || !content.success) {
+                throw new Error(content?.error || 'Failed to extract page content');
             }
 
             const result = await this.analyzeWithAI(content.content || content, type, config);
             
-            if (!result.success) {
-                throw new Error(result.error);
+            if (!result || !result.success) {
+                throw new Error(result?.error || 'AI analysis failed');
             }
 
             this.displayResults(type, result.result);
@@ -113,18 +113,52 @@ class PopupManager {
     }
 
     extractPageContent(type) {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (!tabs || !tabs[0]) {
+                    reject(new Error('No active tab found'));
+                    return;
+                }
+                
                 const action = type === 'sentiment' ? 'extractTextForSentiment' : 'extractPageContent';
-                chrome.tabs.sendMessage(tabs[0].id, { action }, resolve);
+                chrome.tabs.sendMessage(tabs[0].id, { action }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error('Content script not loaded. Please refresh the page and try again.'));
+                        return;
+                    }
+                    
+                    if (!response) {
+                        reject(new Error('No response from content script. Please refresh the page.'));
+                        return;
+                    }
+                    
+                    resolve(response);
+                });
             });
         });
     }
 
     extractImages() {
-        return new Promise((resolve) => {
+        return new Promise((resolve, reject) => {
             chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-                chrome.tabs.sendMessage(tabs[0].id, { action: 'extractImages' }, resolve);
+                if (!tabs || !tabs[0]) {
+                    reject(new Error('No active tab found'));
+                    return;
+                }
+                
+                chrome.tabs.sendMessage(tabs[0].id, { action: 'extractImages' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error('Content script not loaded. Please refresh the page and try again.'));
+                        return;
+                    }
+                    
+                    if (!response) {
+                        reject(new Error('No response from content script. Please refresh the page.'));
+                        return;
+                    }
+                    
+                    resolve(response);
+                });
             });
         });
     }
