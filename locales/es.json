@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "promptIntro": "Por favor proporciona un resumen del siguiente contenido de página web",
+    "lengthInstructions": {
+      "short": "en 1-2 oraciones concisas",
+      "medium": "en 3-4 oraciones claras",
+      "long": "en 1-2 párrafos detallados"
+    },
+    "labels": {
+      "title": "Título",
+      "url": "URL",
+      "content": "Contenido Principal",
+      "headings": "Encabezados Principales",
+      "noTitle": "Sin título",
+      "unknown": "Desconocido",
+      "noContent": "Sin contenido disponible"
+    },
+    "instruction": "Enfócate en los puntos principales e información clave. Sé conciso e informativo. Responde completamente en español."
+  },
+  "sentiment": {
+    "instruction": "Analiza el sentimiento y tono emocional del siguiente texto. Categorízalo como uno de: alegre, neutral, o tóxico.",
+    "textLabel": "Texto a analizar:",
+    "formatInstruction": "Por favor responde en el siguiente formato JSON:",
+    "categories": "alegre/neutral/tóxico",
+    "explanationLabel": "Breve explicación de por qué se eligió este sentimiento",
+    "detailInstruction": "Sé minucioso en tu análisis, considerando contexto, tono e impacto emocional general. Responde completamente en español.",
+    "fallbackMessages": {
+      "positive": "Sentimiento positivo detectado",
+      "negative": "Sentimiento negativo detectado",
+      "neutral": "No se detectó sentimiento fuerte",
+      "noExplanation": "Sin explicación proporcionada"
+    },
+    "categoryNames": {
+      "joyful": "alegre",
+      "neutral": "neutral",
+      "toxic": "tóxico"
+    }
+  },
+  "test": {
+    "prompt": "Responde con '¡Conexión exitosa!' para probar la API. Responde completamente en español.",
+    "successMessage": "¡Conexión API exitosa!"
+  }
+}

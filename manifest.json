@@ -44,6 +44,7 @@
   
   "web_accessible_resources": [
     "popup.html",
-    "options.html"
+    "options.html",
+    "locales/*.json"
   ]
 }

@@ -1,0 +1,43 @@
+{
+  "summary": {
+    "promptIntro": "Please provide a summary of the following webpage content",
+    "lengthInstructions": {
+      "short": "in 1-2 concise sentences",
+      "medium": "in 3-4 clear sentences",
+      "long": "in 1-2 detailed paragraphs"
+    },
+    "labels": {
+      "title": "Title",
+      "url": "URL",
+      "content": "Main Content",
+      "headings": "Key Headings",
+      "noTitle": "No title",
+      "unknown": "Unknown",
+      "noContent": "No content available"
+    },
+    "instruction": "Focus on the main points and key information. Be concise and informative."
+  },
+  "sentiment": {
+    "instruction": "Analyze the sentiment and emotional tone of the following text. Categorize it as one of: joyful, neutral, or toxic.",
+    "textLabel": "Text to analyze:",
+    "formatInstruction": "Please respond in the following JSON format:",
+    "categories": "joyful/neutral/toxic",
+    "explanationLabel": "Brief explanation of why this sentiment was chosen",
+    "detailInstruction": "Be thorough in your analysis, considering context, tone, and overall emotional impact.",
+    "fallbackMessages": {
+      "positive": "Positive sentiment detected",
+      "negative": "Negative sentiment detected",
+      "neutral": "No strong sentiment detected",
+      "noExplanation": "No explanation provided"
+    },
+    "categoryNames": {
+      "joyful": "joyful",
+      "neutral": "neutral",
+      "toxic": "toxic"
+    }
+  },
+  "test": {
+    "prompt": "Respond with 'Connection successful!' to test the API.",
+    "successMessage": "API connection successful!"
+  }
+}

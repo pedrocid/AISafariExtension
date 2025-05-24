@@ -1,5 +1,40 @@
+class LocalizationManager {
+    constructor() {
+        this.locales = {};
+        this.loadedLanguages = new Set();
+    }
+
+    async loadLocale(language) {
+        if (this.loadedLanguages.has(language)) {
+            return this.locales[language];
+        }
+
+        try {
+            const response = await fetch(chrome.runtime.getURL(`locales/${language}.json`));
+            if (!response.ok) {
+                throw new Error(`Failed to load locale: ${language}`);
+            }
+            const localeData = await response.json();
+            this.locales[language] = localeData;
+            this.loadedLanguages.add(language);
+            return localeData;
+        } catch (error) {
+            console.warn(`Failed to load locale ${language}, falling back to English:`, error);
+            if (language !== 'en') {
+                return await this.loadLocale('en');
+            }
+            throw error;
+        }
+    }
+
+    async getLocale(language = 'en') {
+        return await this.loadLocale(language);
+    }
+}
+
 class AIWebpageAnalyzerBackground {
     constructor() {
+        this.localizationManager = new LocalizationManager();
         this.setupMessageListener();
     }
 
@@ -24,13 +59,17 @@ class AIWebpageAnalyzerBackground {
                 throw new Error('Missing AI configuration');
             }
 
+            // Get language preference
+            const settings = await this.getSettings();
+            const language = settings.responseLanguage || 'en';
+
             let result;
             switch (analysisType) {
                 case 'summary':
-                    result = await this.generateSummary(content, config);
+                    result = await this.generateSummary(content, config, language);
                     break;
                 case 'sentiment':
-                    result = await this.analyzeSentiment(content, config);
+                    result = await this.analyzeSentiment(content, config, language);
                     break;
                 default:
                     throw new Error('Unknown analysis type');
@@ -42,8 +81,8 @@ class AIWebpageAnalyzerBackground {
         }
     }
 
-    async generateSummary(content, config) {
-        const prompt = this.createSummaryPrompt(content, config.summaryLength);
+    async generateSummary(content, config, language) {
+        const prompt = await this.createSummaryPrompt(content, config.summaryLength, language);
         const response = await this.callAI(prompt, config);
         return {
             type: 'summary',
@@ -52,11 +91,11 @@ class AIWebpageAnalyzerBackground {
         };
     }
 
-    async analyzeSentiment(content, config) {
-        const prompt = this.createSentimentPrompt(content.text);
+    async analyzeSentiment(content, config, language) {
+        const prompt = await this.createSentimentPrompt(content.text, language);
         const response = await this.callAI(prompt, config);
         
-        const sentiment = this.parseSentimentResponse(response);
+        const sentiment = await this.parseSentimentResponse(response, language);
         return {
             type: 'sentiment',
             sentiment: sentiment.category,
@@ -66,40 +105,48 @@ class AIWebpageAnalyzerBackground {
         };
     }
 
-    createSummaryPrompt(content, length = 'medium') {
-        const lengthInstructions = {
-            'short': 'in 1-2 concise sentences',
-            'medium': 'in 3-4 clear sentences',
-            'long': 'in 1-2 detailed paragraphs'
-        };
-
-        return `Please provide a summary of the following webpage content ${lengthInstructions[length]}:
-
-Title: ${content.title || 'No title'}
-URL: ${content.url || 'Unknown'}
-
-Main Content:
-${content.text || 'No content available'}
-
-${content.headings?.length ? `\nKey Headings: ${content.headings.map(h => h.text).join(', ')}` : ''}
-
-Focus on the main points and key information. Be concise and informative.`;
+    getSettings() {
+        return new Promise((resolve) => {
+            chrome.storage.sync.get([
+                'responseLanguage'
+            ], resolve);
+        });
     }
 
-    createSentimentPrompt(text) {
-        return `Analyze the sentiment and emotional tone of the following text. Categorize it as one of: joyful, neutral, or toxic.
+    async createSummaryPrompt(content, length = 'medium', language = 'en') {
+        const locale = await this.localizationManager.getLocale(language);
+        const summary = locale.summary;
 
-Text to analyze:
+        return `${summary.promptIntro} ${summary.lengthInstructions[length]}:
+
+${summary.labels.title}: ${content.title || summary.labels.noTitle}
+${summary.labels.url}: ${content.url || summary.labels.unknown}
+
+${summary.labels.content}:
+${content.text || summary.labels.noContent}
+
+${content.headings?.length ? `\n${summary.labels.headings}: ${content.headings.map(h => h.text).join(', ')}` : ''}
+
+${summary.instruction}`;
+    }
+
+    async createSentimentPrompt(text, language = 'en') {
+        const locale = await this.localizationManager.getLocale(language);
+        const sentiment = locale.sentiment;
+
+        return `${sentiment.instruction}
+
+${sentiment.textLabel}
 ${text}
 
-Please respond in the following JSON format:
+${sentiment.formatInstruction}
 {
-  "category": "joyful/neutral/toxic",
+  "category": "${sentiment.categories}",
   "confidence": 0.85,
-  "explanation": "Brief explanation of why this sentiment was chosen"
+  "explanation": "${sentiment.explanationLabel}"
 }
 
-Be thorough in your analysis, considering context, tone, and overall emotional impact.`;
+${sentiment.detailInstruction}`;
     }
 
     async callAI(prompt, config) {
@@ -175,11 +222,16 @@ Be thorough in your analysis, considering context, tone, and overall emotional i
 
     async testAPIConnection(config) {
         try {
-            const testPrompt = "Respond with 'Connection successful!' to test the API.";
+            const settings = await this.getSettings();
+            const language = settings.responseLanguage || 'en';
+            const locale = await this.localizationManager.getLocale(language);
+            
+            const testPrompt = locale.test.prompt;
             const response = await this.callAI(testPrompt, config);
+            
             return { 
                 success: true, 
-                message: 'API connection successful!',
+                message: locale.test.successMessage,
                 response: response.substring(0, 100)
             };
         } catch (error) {
@@ -190,7 +242,10 @@ Be thorough in your analysis, considering context, tone, and overall emotional i
         }
     }
 
-    parseSentimentResponse(response) {
+    async parseSentimentResponse(response, language = 'en') {
+        const locale = await this.localizationManager.getLocale(language);
+        const sentiment = locale.sentiment;
+        
         try {
             const jsonMatch = response.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
@@ -198,7 +253,7 @@ Be thorough in your analysis, considering context, tone, and overall emotional i
                 return {
                     category: parsed.category || 'neutral',
                     confidence: parsed.confidence || 0.5,
-                    explanation: parsed.explanation || 'No explanation provided'
+                    explanation: parsed.explanation || sentiment.fallbackMessages.noExplanation
                 };
             }
         } catch (e) {
@@ -206,12 +261,34 @@ Be thorough in your analysis, considering context, tone, and overall emotional i
         }
 
         const lowerResponse = response.toLowerCase();
-        if (lowerResponse.includes('joyful') || lowerResponse.includes('positive') || lowerResponse.includes('happy')) {
-            return { category: 'joyful', confidence: 0.7, explanation: 'Detected positive sentiment' };
-        } else if (lowerResponse.includes('toxic') || lowerResponse.includes('negative') || lowerResponse.includes('hostile')) {
-            return { category: 'toxic', confidence: 0.7, explanation: 'Detected negative sentiment' };
-        } else {
-            return { category: 'neutral', confidence: 0.6, explanation: 'No strong sentiment detected' };
+        
+        // Check for positive sentiment
+        if (lowerResponse.includes('alegre') || lowerResponse.includes('joyful') || 
+            lowerResponse.includes('positive') || lowerResponse.includes('happy') || 
+            lowerResponse.includes('positivo')) {
+            return { 
+                category: sentiment.categoryNames.joyful, 
+                confidence: 0.7, 
+                explanation: sentiment.fallbackMessages.positive 
+            };
+        } 
+        // Check for negative sentiment
+        else if (lowerResponse.includes('tóxico') || lowerResponse.includes('toxic') || 
+                 lowerResponse.includes('negative') || lowerResponse.includes('hostile') || 
+                 lowerResponse.includes('negativo')) {
+            return { 
+                category: sentiment.categoryNames.toxic, 
+                confidence: 0.7, 
+                explanation: sentiment.fallbackMessages.negative 
+            };
+        } 
+        // Default to neutral
+        else {
+            return { 
+                category: sentiment.categoryNames.neutral, 
+                confidence: 0.6, 
+                explanation: sentiment.fallbackMessages.neutral 
+            };
         }
     }
 }

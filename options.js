@@ -86,6 +86,10 @@ class OptionsManager {
             document.getElementById('maxImages').value = settings.maxImages;
         }
 
+        if (settings.responseLanguage) {
+            document.getElementById('responseLanguage').value = settings.responseLanguage;
+        }
+
         this.updateTestButtonState();
     }
 
@@ -96,7 +100,8 @@ class OptionsManager {
                 'aiModel', 
                 'apiKey', 
                 'summaryLength', 
-                'maxImages'
+                'maxImages',
+                'responseLanguage'
             ], resolve);
         });
     }
@@ -211,7 +216,8 @@ class OptionsManager {
                 aiModel: document.getElementById('modelName').value,
                 apiKey: document.getElementById('apiKey').value,
                 summaryLength: document.getElementById('summaryLength').value,
-                maxImages: document.getElementById('maxImages').value
+                maxImages: document.getElementById('maxImages').value,
+                responseLanguage: document.getElementById('responseLanguage').value
             };
 
             await this.storeSettings(settings);
@@ -262,6 +268,7 @@ class OptionsManager {
                 document.getElementById('apiKey').value = '';
                 document.getElementById('summaryLength').value = 'medium';
                 document.getElementById('maxImages').value = '20';
+                document.getElementById('responseLanguage').value = 'en';
                 
                 this.handleProviderChange('');
                 
